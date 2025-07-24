@@ -414,7 +414,8 @@ async def reset_user_memory(user_id: int):
 #     import uvicorn
 #     uvicorn.run(app, host="127.0.0.1", port=8000)
 
-if __name__ == "__main__":
+# preload data during startup
+@app.on_event("startup")
+def on_startup():
     preload_member_names()
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+
