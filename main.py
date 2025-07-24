@@ -3,7 +3,6 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from langchain_openai import ChatOpenAI
-from langchain.memory import ConversationBufferMemory
 from langchain.memory import ConversationBufferWindowMemory
 
 from langchain.chains import ConversationChain
@@ -15,7 +14,6 @@ import unicodedata
 from difflib import get_close_matches
 from typing import Optional
 import os
-import uvicorn
 
 # FastAPI setup
 app = FastAPI()
@@ -29,20 +27,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# MySQL config
-# db_config = {
-#     'host': '127.0.0.1',
-#     'user': 'root',
-#     'password': '',
-#     'database': 'bniuser'
-# }
-
-# # OpenRouter / DeepSeek config
-# openrouter_config = {
-#     'base_url': 'https://api.deepseek.com',
-#     'api_key': 'sk-7dd2748bff6e4ffcab8a10e8133ecefc',
-#     'model': 'deepseek-chat'
-# }
 
 db_config = {
     'host': os.environ.get('DB_HOST'),
@@ -70,12 +54,18 @@ llm = ChatOpenAI(
 # Memory store per user
 user_memory_store = {}
 
-# def get_conversation_chain(user_id: int):
-#     if user_id not in user_memory_store:
-#         memory = ConversationBufferMemory(memory_key="history", return_messages=True)
-#         chain = ConversationChain(llm=llm, memory=memory)
-#         user_memory_store[user_id] = chain
-#     return user_memory_store[user_id]
+
+
+
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        print(">>> Startup event triggered")
+        preload_member_names()
+        print(">>> Member names preloaded")
+    except Exception as e:
+        print(f"❌ Error in startup_event: {e}")
 
 
 def get_conversation_chain(user_id: int):
@@ -380,15 +370,6 @@ async def ask_question(data: QuestionRequest):
        chain = get_conversation_chain(user_id)
        chain.run(f"User asked: {data.question}\nAI responded: {ai_response}")
 
-    # if user_id:
-    #    chain = get_conversation_chain(user_id)
-    #    context_input = f"User Question: {data.question}\nQuery Results:\n{json.dumps(rows, indent=2)}"
-    #    ai_response = chain.run(input=context_input)
-    #    print(f"[Conversation History]: {user_memory_store[user_id].memory.buffer}")
-    # else:
-    #    ai_response = generate_friendly_summary(data.question, rows)
-        
-    
         
     summary = normalize_text(clean_text(ai_response))
     conversation = normalize_text(f"User: {data.question}\nAI: {summary}")
@@ -408,14 +389,4 @@ async def reset_user_memory(user_id: int):
         del user_memory_store[user_id]
     return {"status": "memory_reset", "user_id": user_id}
 
-# On startup
-# if __name__ == "__main__":
-    # preload_member_names()
-#     import uvicorn
-#     uvicorn.run(app, host="127.0.0.1", port=8000)
-
-# preload data during startup
-@app.on_event("startup")
-def on_startup():
-    preload_member_names()
 
